@@ -13,6 +13,7 @@ type Config struct {
 	HTTPTimeout     time.Duration `env:"HTTP_TIMEOUT"`
 	IdleTimeout     time.Duration `env:"IDLE_TIMEOUT"`
 	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT"`
+	DBUrl           string        `env:"DB_URL"`
 }
 
 func Load() (*Config, error) {
