@@ -1,12 +1,15 @@
 -- migrate:up
 CREATE TABLE users
 (
-    id         bigserial PRIMARY KEY,
-    username   varchar(25) NOT NULL UNIQUE,
-    password   varchar(30) NOT NULL,
-    created_at timestamp,
-    updated_at timestamp
+    id         BIGSERIAL PRIMARY KEY,
+    name       VARCHAR(255) NOT NULL,
+    email      VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_created_at ON users (created_at);
 
 -- migrate:down
 DROP TABLE IF EXISTS users
