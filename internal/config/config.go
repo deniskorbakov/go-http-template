@@ -10,10 +10,10 @@ import (
 type Config struct {
 	ApiPort         string        `envconfig:"API_PORT"`
 	DiagPort        string        `envconfig:"DIAG_PORT"`
+	DBUrl           string        `envconfig:"DB_URL"`
 	HTTPTimeout     time.Duration `envconfig:"HTTP_TIMEOUT"`
 	IdleTimeout     time.Duration `envconfig:"IDLE_TIMEOUT"`
 	ShutdownTimeout time.Duration `envconfig:"SHUTDOWN_TIMEOUT"`
-	DBUrl           string        `envconfig:"DB_URL"`
 }
 
 func Load() (*Config, error) {
