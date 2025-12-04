@@ -1,21 +1,14 @@
 package main
 
 import (
-	"context"
-	"go.uber.org/zap"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
-	_ "github.com/lib/pq"
-
-	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
-	"go-templ/internal/config"
-	"go-templ/internal/handler"
+	"go-templ/internal/resource"
+	"go-templ/internal/server/health"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -24,7 +17,6 @@ func main() {
 	}
 }
 
-// run todo divide everything into layers
 func run() error {
 	logger, _ := zap.NewProduction()
 
@@ -34,68 +26,60 @@ func run() error {
 	logger.Info("starting app")
 	logger.Info("initializing config")
 
-	cfg, err := config.Load()
+	cfg, err := resource.NewConfig()
 	if err != nil {
 		logger.Panic("cant init config", zap.Error(err))
 	}
 
-	logger.Info("initializing database")
+	logger.Info("initializing postgres")
 
-	conn, err := sqlx.Open("postgres", cfg.DBUrl)
+	pg, err := resource.NewPostgres(cfg)
 	if err != nil {
-		logger.Panic("cant init db", zap.Error(err))
+		logger.Panic("cant init postgres", zap.Error(err))
 	}
 
-	if err = conn.Ping(); err != nil {
-		logger.Panic("cant connect to db", zap.Error(err))
+	logger.Info("initializing redis")
+
+	rd, err := resource.NewRedis(cfg)
+	if err != nil {
+		logger.Panic("cant init redis", zap.Error(err))
 	}
 
-	logger.Info("initializing router")
+	logger.Info("initializing servers")
 
-	router := mux.NewRouter()
-	router.HandleFunc("/", handler.HomeHandler).Methods("GET")
-
-	logger.Info("initializing server")
-
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	srv := &http.Server{
-		Addr:         net.JoinHostPort("", cfg.ApiPort),
-		Handler:      router,
-		ReadTimeout:  cfg.HTTPTimeout,
-		WriteTimeout: cfg.HTTPTimeout,
-		IdleTimeout:  cfg.IdleTimeout,
-	}
-
-	go func() {
-		logger.Info("starting server", zap.String("port", cfg.ApiPort))
-
-		if err = srv.ListenAndServe(); err != nil {
-			logger.Error("failed to start server", zap.Error(err))
-		}
-	}()
+	healthServer := health.NewServer(cfg, logger, pg, rd)
+	healthServer.Start()
 
 	logger.Info("server started successfully")
 
-	<-done
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	select {
+	case x := <-interrupt:
+		logger.Info("Received a signal.", zap.String("signal", x.String()))
+	case err = <-healthServer.Notify():
+		logger.Error("Received an error from the health server", zap.Error(err))
+		//case err = <-grpcServer.Notify():
+		//	logger.Error("Received an error from the grpc server", zap.Error(err))
+	}
+
 	logger.Info("stopping server")
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-	defer cancel()
-
-	logger.Info("shutting down server", zap.Duration("timeout", cfg.ShutdownTimeout))
-
-	if err = srv.Shutdown(ctx); err != nil {
-		logger.Error("Server forced to shutdown", zap.Error(err))
+	if err = healthServer.Stop(); err != nil {
+		logger.Error("server stopped with error", zap.Error(err))
 	}
 
-	logger.Info("closing database connection")
-	if err := conn.Close(); err != nil {
-		logger.Error("failed to close db connection", zap.Error(err))
+	logger.Info("closing resources")
+
+	if err = pg.Close(); err != nil {
+		logger.Error("postgres close failed", zap.Error(err))
 	}
 
-	logger.Info("server stopped")
+	if err = rd.Close(); err != nil {
+		logger.Error("redis close failed", zap.Error(err))
+	}
+
+	logger.Info("The app is calling the last defers and will be stopped")
 
 	return nil
 }
