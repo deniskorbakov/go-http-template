@@ -3,14 +3,14 @@ services:
     container_name: app.${APP_NAME}
     build:
       context: .
-      dockerfile: .docker/go/Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "${API_PORT}:${API_PORT}"
       - "${DIAG_PORT}:${DIAG_PORT}"
     environment:
       - DB_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_DATABASE}?sslmode=disable
-      - API_PORT=${API_PORT}
-      - DIAG_PORT=${DIAG_PORT}
+      - GRPC_PORT=${GRPC_PORT}
+      - HEALTH_PORT=${HEALTH_PORT}
       - HTTP_TIMEOUT=${HTTP_TIMEOUT}
       - IDLE_TIMEOUT=${IDLE_TIMEOUT}
       - SHUTDOWN_TIMEOUT=${SHUTDOWN_TIMEOUT}
@@ -48,7 +48,7 @@ services:
   dbmate:
     container_name: dbmate.${APP_NAME}
     image: amacneil/dbmate:2.28
-    entrypoint: ["dbmate", "up"]
+    entrypoint: [ "dbmate", "up" ]
     environment:
       - DATABASE_URL=postgres://${DB_USERNAME}:${DB_PASSWORD}@db:5432/${DB_DATABASE}?sslmode=disable
     volumes:
