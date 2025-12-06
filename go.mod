@@ -1,5 +1,4 @@
-//todo update module
-module go-templ
+module github.com/go-list-templ/grpc
 
 go 1.24.4
 
