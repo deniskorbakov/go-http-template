@@ -1,2 +1,2 @@
-# go-templ
+# Grpc
 Template for Golang
